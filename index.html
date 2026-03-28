@@ -499,7 +499,7 @@ select option{background:var(--surface2);}
       <div class="card-title">Choisir une strategie</div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;" id="strat-grid">
 
-        <div class="strat-card" onclick="selectStrat('flat')">
+        <div class="strat-card selected" id="sc-flat" onclick="selectStrat('flat')">
           <div class="strat-header">
             <span class="strat-name">Mise Fixe</span>
             <span class="strat-risk low">Faible risque</span>
@@ -510,7 +510,7 @@ select option{background:var(--surface2);}
           </div>
         </div>
 
-        <div class="strat-card" onclick="selectStrat('martingale')">
+        <div class="strat-card" id="sc-martingale" onclick="selectStrat('martingale')">
           <div class="strat-header">
             <span class="strat-name">Martingale</span>
             <span class="strat-risk high">Tres risquee</span>
@@ -521,7 +521,7 @@ select option{background:var(--surface2);}
           </div>
         </div>
 
-        <div class="strat-card" onclick="selectStrat('antimartingale')">
+        <div class="strat-card" id="sc-antimartingale" onclick="selectStrat('antimartingale')">
           <div class="strat-header">
             <span class="strat-name">Anti-Martingale</span>
             <span class="strat-risk mid">Risque modere</span>
@@ -535,7 +535,7 @@ select option{background:var(--surface2);}
           </div>
         </div>
 
-        <div class="strat-card" onclick="selectStrat('fibonacci')">
+        <div class="strat-card" id="sc-fibonacci" onclick="selectStrat('fibonacci')">
           <div class="strat-header">
             <span class="strat-name">Fibonacci</span>
             <span class="strat-risk mid">Risque modere</span>
@@ -546,7 +546,7 @@ select option{background:var(--surface2);}
           </div>
         </div>
 
-        <div class="strat-card" onclick="selectStrat('dalembert')">
+        <div class="strat-card" id="sc-dalembert" onclick="selectStrat('dalembert')">
           <div class="strat-header">
             <span class="strat-name">D Alembert</span>
             <span class="strat-risk mid">Risque modere</span>
@@ -560,7 +560,7 @@ select option{background:var(--surface2);}
           </div>
         </div>
 
-        <div class="strat-card" onclick="selectStrat('paroli')">
+        <div class="strat-card" id="sc-paroli" onclick="selectStrat('paroli')">
           <div class="strat-header">
             <span class="strat-name">Paroli (3 gains)</span>
             <span class="strat-risk low">Faible risque</span>
@@ -571,7 +571,7 @@ select option{background:var(--surface2);}
           </div>
         </div>
 
-        <div class="strat-card" onclick="selectStrat('labouchere')">
+        <div class="strat-card" id="sc-labouchere" onclick="selectStrat('labouchere')">
           <div class="strat-header">
             <span class="strat-name">Labouchere</span>
             <span class="strat-risk high">Risquee</span>
@@ -585,7 +585,7 @@ select option{background:var(--surface2);}
           </div>
         </div>
 
-        <div class="strat-card" onclick="selectStrat('oscar')">
+        <div class="strat-card" id="sc-oscar" onclick="selectStrat('oscar')">
           <div class="strat-header">
             <span class="strat-name">Oscar Grind</span>
             <span class="strat-risk low">Faible risque</span>
@@ -948,12 +948,12 @@ var simChartInst = null;
 function selectStrat(name){
   currentStrat = name;
   document.querySelectorAll('.strat-card').forEach(function(c){c.classList.remove('selected');});
-  var idx = ['flat','martingale','antimartingale','fibonacci','dalembert','paroli','labouchere','oscar'];
-  document.querySelectorAll('.strat-card')[idx.indexOf(name)].classList.add('selected');
+  var el = document.getElementById('sc-'+name);
+  if(el) el.classList.add('selected');
 }
 
 function initSim(){
-  selectStrat('flat');
+  if(!currentStrat) currentStrat='flat';
 }
 
 function simPreview(){}
@@ -964,11 +964,13 @@ function resetSim(){
 }
 
 function runSimulation(){
+  if(!currentStrat) currentStrat='flat';
   var capital = parseFloat(document.getElementById('sim-capital').value)||100;
   var rounds  = parseInt(document.getElementById('sim-rounds').value)||50;
   var baseBet = parseFloat(document.getElementById('sim-base-bet').value)||10;
   var prob    = parseFloat(document.getElementById('sim-prob').value)/100;
-
+  if(isNaN(capital)||capital<=0){alert('Capital invalide');return;}
+  if(isNaN(baseBet)||baseBet<=0){alert('Mise de base invalide');return;}
   var results = simulateStrategy(currentStrat, capital, rounds, baseBet, prob);
 
   document.getElementById('sim-result').style.display='block';
@@ -1129,168 +1131,6 @@ function getCashout(strat){
 }
 
 
-// ---- SIMULATEUR ----
-var SIM_DESCRIPTIONS = {
-  flat: "Mise fixe a chaque round. La strategie la plus simple. Vous misez toujours le meme montant peu importe le resultat precedent.",
-  martingale: "Doublez la mise apres chaque perte, revenez a la mise initiale apres un gain. Recupere les pertes rapidement mais tres risque : une serie de defaites peut epuiser le budget.",
-  antimartingale: "Doublez la mise apres chaque gain, revenez a la mise initiale apres une perte. Exploite les series gagnantes mais perd les profits rapidement.",
-  fibonacci: "Suivez la sequence Fibonacci (1,1,2,3,5,8,13...) pour augmenter la mise apres chaque perte. Plus prudent que la Martingale mais toujours risque.",
-  dalembert: "Augmentez la mise de 1 unite apres une perte, diminuez de 1 unite apres un gain. Progression douce, moins risquee que la Martingale.",
-  paroli: "Doublez la mise 3 fois consecutives apres un gain, puis revenez au debut. Exploite les series gagnantes de facon controlee.",
-  labouchere: "Utilisez une sequence de nombres. La mise = premier + dernier nombre. Apres gain : supprimez les 2 extremes. Apres perte : ajoutez le total a la fin.",
-  conservative: "Cashout systematique a 1.2x pour maximiser les victoires. Gains faibles mais taux de victoire eleve. Bon pour limiter les pertes.",
-  aggressive: "Cashout uniquement a 5x ou plus. Gains importants mais rares. La plupart des rounds se terminent en perte.",
-  mixed: "Alternance entre cashout a 1.5x (mise normale) et cashout a 3x (mise reduite). Equilitre entre securite et rendement."
-};
-
-function updateSimDesc(){
-  var s = document.getElementById('sim-strategy').value;
-  document.getElementById('sim-desc').textContent = SIM_DESCRIPTIONS[s] || '';
-}
-
-function generateCrash(){
-  // Distribution realiste : beaucoup de crashs bas, quelques hauts
-  var r = Math.random();
-  if(r < 0.45) return 1.0 + Math.random() * 0.49;  // 45% : crash entre 1x et 1.49x
-  if(r < 0.70) return 1.5 + Math.random() * 0.99;  // 25% : 1.5x - 2.49x
-  if(r < 0.85) return 2.5 + Math.random() * 2.49;  // 15% : 2.5x - 4.99x
-  if(r < 0.94) return 5.0 + Math.random() * 4.99;  // 9%  : 5x - 9.99x
-  return 10.0 + Math.random() * 40.0;               // 6%  : 10x - 50x
-}
-
-function runSimulation(){
-  var strategy = document.getElementById('sim-strategy').value;
-  var startBudget = parseFloat(document.getElementById('sim-budget').value) || 100;
-  var baseMise = parseFloat(document.getElementById('sim-mise').value) || 10;
-  var maxRounds = parseInt(document.getElementById('sim-rounds').value) || 50;
-  var cashoutTarget = parseFloat(document.getElementById('sim-cashout').value) || 2;
-  var stopGain = parseFloat(document.getElementById('sim-stopgain').value) || 0;
-
-  var budget = startBudget;
-  var mise = baseMise;
-  var rounds = [];
-  var balanceHistory = [startBudget];
-  var wins = 0, losses = 0;
-
-  // Labouchere sequence
-  var lseq = [1,2,3,4];
-
-  // Fibonacci sequence
-  var fibSeq = [1,1,2,3,5,8,13,21,34,55];
-  var fibIdx = 0;
-
-  // Paroli counter
-  var paroli = 0;
-
-  // DAlembert unit
-  var daUnit = baseMise;
-
-  for(var i=0; i<maxRounds; i++){
-    if(budget <= 0){ rounds.push({r:i+1,crash:0,mise:0,result:'stop',budget:0,note:'Budget epuise'}); break; }
-    if(stopGain > 0 && budget >= startBudget + stopGain){ rounds.push({r:i+1,crash:0,mise:0,result:'stop',budget:budget,note:'Stop gain atteint'}); break; }
-
-    // Calculate mise based on strategy
-    if(strategy==='flat') mise = baseMise;
-    else if(strategy==='martingale'){ /* updated after result */ }
-    else if(strategy==='antimartingale'){ /* updated after result */ }
-    else if(strategy==='fibonacci') mise = fibSeq[Math.min(fibIdx, fibSeq.length-1)] * baseMise;
-    else if(strategy==='dalembert') mise = Math.max(baseMise, daUnit);
-    else if(strategy==='paroli'){ /* updated after result */ }
-    else if(strategy==='labouchere'){
-      if(lseq.length===0) lseq=[1,2,3,4];
-      mise = lseq.length===1 ? lseq[0]*baseMise : (lseq[0]+lseq[lseq.length-1])*baseMise;
-    }
-    else if(strategy==='conservative'){ mise=baseMise; cashoutTarget=1.2; }
-    else if(strategy==='aggressive'){ mise=baseMise; cashoutTarget=5.0; }
-    else if(strategy==='mixed'){
-      if(i%2===0){mise=baseMise;cashoutTarget=1.5;}
-      else{mise=Math.max(1,baseMise/2);cashoutTarget=3.0;}
-    }
-
-    mise = Math.min(mise, budget);
-    mise = Math.max(1, Math.round(mise));
-
-    var crash = generateCrash();
-    var won = crash >= cashoutTarget;
-    var gain = won ? Math.round(mise * cashoutTarget * 100) / 100 : 0;
-
-    if(won){
-      budget = Math.round((budget - mise + gain)*100)/100;
-      wins++;
-    } else {
-      budget = Math.round((budget - mise)*100)/100;
-      losses++;
-    }
-    budget = Math.max(0, budget);
-    balanceHistory.push(budget);
-
-    // Update strategy state after result
-    if(strategy==='martingale') mise = won ? baseMise : mise*2;
-    else if(strategy==='antimartingale') mise = won ? mise*2 : baseMise;
-    else if(strategy==='fibonacci'){
-      if(won) fibIdx = Math.max(0, fibIdx-2);
-      else fibIdx = Math.min(fibSeq.length-1, fibIdx+1);
-    }
-    else if(strategy==='dalembert'){
-      daUnit = won ? Math.max(baseMise, daUnit-baseMise) : daUnit+baseMise;
-    }
-    else if(strategy==='paroli'){
-      if(won){ paroli++; if(paroli>=3){mise=baseMise;paroli=0;}else{mise=mise*2;} }
-      else{ mise=baseMise; paroli=0; }
-    }
-    else if(strategy==='labouchere'){
-      if(won){ if(lseq.length>=2){lseq.shift();lseq.pop();}else{lseq=[];} }
-      else{ lseq.push(lseq.length>0?(lseq[0]+lseq[lseq.length-1]):1); }
-    }
-
-    rounds.push({r:i+1, crash:crash.toFixed(2), mise:mise, result:won?'win':'loss', budget:budget, note:won?('Crash '+crash.toFixed(2)+'x - cashout '+cashoutTarget+'x'):('Crash '+crash.toFixed(2)+'x')});
-  }
-
-  var finalBudget = budget;
-  var net = Math.round((finalBudget - startBudget)*100)/100;
-  var totalRounds = rounds.filter(function(r){return r.result!=='stop';}).length;
-  var winRate = totalRounds > 0 ? Math.round(wins/totalRounds*100) : 0;
-
-  // Update result metrics
-  document.getElementById('sim-r-final').textContent = finalBudget + ' DH';
-  document.getElementById('sim-r-final').className = 'metric-val ' + (finalBudget > startBudget ? 'green' : finalBudget < startBudget ? 'red' : '');
-  document.getElementById('sim-r-net').textContent = (net>=0?'+':'')+net+' DH';
-  document.getElementById('sim-r-net').className = 'metric-val ' + (net > 0 ? 'green' : net < 0 ? 'red' : '');
-  document.getElementById('sim-r-winrate').textContent = winRate + '%';
-  document.getElementById('sim-r-rounds').textContent = totalRounds;
-
-  // Chart
-  if(window._simChart) window._simChart.destroy();
-  var ctx = document.getElementById('sim-chart');
-  var labels = balanceHistory.map(function(v,i){return i===0?'Debut':'R'+i;});
-  var colors = balanceHistory.map(function(v){ return v >= startBudget ? '#2dd98f' : '#f05252'; });
-  window._simChart = new Chart(ctx, {
-    type:'line',
-    data:{labels:labels,datasets:[{data:balanceHistory,borderColor:'#4f8ef7',backgroundColor:'rgba(79,142,247,0.08)',borderWidth:2,pointRadius:0,tension:0.3,fill:true},{data:Array(balanceHistory.length).fill(startBudget),borderColor:'rgba(255,255,255,0.15)',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return v+' DH';},color:'#555a72',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},border:{color:'rgba(255,255,255,.05)'}},x:{ticks:{maxTicksLimit:10,color:'#555a72',font:{size:10}},grid:{display:false},border:{color:'rgba(255,255,255,.05)'}}}}
-  });
-
-  // Log
-  var logEl = document.getElementById('sim-log');
-  logEl.innerHTML = rounds.slice(0,100).map(function(r){
-    if(r.result==='stop') return '<div class="sim-round-stop">Round '+r.r+' - '+r.note+' - Solde : '+r.budget+' DH</div>';
-    return '<div class="sim-round-'+(r.result==='win'?'win':'loss')+'">'
-      +'R'+r.r+' | Mise: '+r.mise+' DH | '+r.note
-      +' | Solde: <strong>'+r.budget+' DH</strong></div>';
-  }).join('');
-  if(rounds.length>100) logEl.innerHTML += '<div style="color:var(--text3);font-size:11px;text-align:center;padding:8px;">...et '+(rounds.length-100)+' autres rounds</div>';
-
-  document.getElementById('sim-results').style.display = 'block';
-}
-
-
-toggleGain();
-syncSettings();
-updateMetrics();
-renderHistory();
-var lm=localStorage.getItem('crash_month_v4');
-var nm=new Date().getMonth()+'-'+new Date().getFullYear();
-if(!lm||lm!==nm){localStorage.setItem('crash_month_v4',nm);openBudgetModal();}
 </script>
 </body>
 </html>
