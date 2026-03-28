@@ -126,6 +126,11 @@ select option{background:var(--surface2);}
 .settings-group{display:flex;flex-direction:column;gap:14px;}
 .setting-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}
 .setting-input{width:140px;}
+
+.sim-round-win{background:var(--green-dim);border:1px solid var(--green);color:var(--green);border-radius:6px;padding:5px 10px;}
+.sim-round-loss{background:var(--red-dim);border:1px solid var(--red);color:var(--red);border-radius:6px;padding:5px 10px;}
+.sim-round-stop{background:var(--amber-dim);border:1px solid var(--amber);color:var(--amber);border-radius:6px;padding:5px 10px;}
+
 .empty{text-align:center;color:var(--text3);font-size:13px;padding:2.5rem 0;}
 @media(max-width:600px){
   .metrics{grid-template-columns:repeat(2,1fr);}
@@ -135,6 +140,19 @@ select option{background:var(--surface2);}
   .container{padding:1rem;}
   .streak-row{flex-direction:column;}
 }
+
+.strat-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;cursor:pointer;transition:all .2s;}
+.strat-card:hover{border-color:var(--border2);}
+.strat-card.selected{border-color:var(--accent);background:var(--accent-dim);}
+.strat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.strat-name{font-weight:500;font-size:14px;color:var(--text);}
+.strat-risk{font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:99px;font-weight:700;}
+.strat-risk.low{background:var(--green-dim);color:var(--green);border:1px solid var(--green);}
+.strat-risk.mid{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber);}
+.strat-risk.high{background:var(--red-dim);color:var(--red);border:1px solid var(--red);}
+.strat-desc{font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5;}
+.strat-params{border-top:1px solid var(--border);padding-top:10px;}
+.sim-round{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);}
 </style>
 </head>
 <body>
@@ -305,7 +323,9 @@ select option{background:var(--surface2);}
     <button class="tab active" onclick="switchTab('log')">+ Session</button>
     <button class="tab" onclick="switchTab('history')">Historique</button>
     <button class="tab" onclick="switchTab('stats')">Statistiques</button>
+    <button class="tab" onclick="switchTab('sim')">🎮 Simulateur</button>
     <button class="tab" onclick="switchTab('settings')">Parametres</button>
+    <button class="tab" onclick="switchTab('simulator')">🎮 Simulateur</button>
   </div>
 
   <div id="tab-log" class="section active">
@@ -446,6 +466,245 @@ select option{background:var(--surface2);}
     </div>
   </div>
 
+
+  <!-- SIMULATEUR -->
+  <div id="tab-sim" class="section">
+
+    <div class="card">
+      <div class="card-title">Configuration de la simulation</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+        <div class="field">
+          <label>Capital de depart (DH)</label>
+          <input type="number" id="sim-capital" value="100" min="10" oninput="simPreview()">
+        </div>
+        <div class="field">
+          <label>Nombre de rounds</label>
+          <input type="number" id="sim-rounds" value="50" min="5" max="500" oninput="simPreview()">
+        </div>
+        <div class="field">
+          <label>Mise de base (DH)</label>
+          <input type="number" id="sim-base-bet" value="10" min="1" oninput="simPreview()">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Probabilite de crash avant cashout (simulation)</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="range" id="sim-prob" min="20" max="80" value="45" oninput="document.getElementById('sim-prob-val').textContent=this.value+'%'; simPreview();" style="flex:1;">
+          <span id="sim-prob-val" style="font-family:var(--mono);font-size:13px;color:var(--amber);min-width:36px;">45%</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">Realiste : 40-55%. Plus c est haut, plus vous perdez souvent.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Choisir une strategie</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;" id="strat-grid">
+
+        <div class="strat-card" onclick="selectStrat('flat')">
+          <div class="strat-header">
+            <span class="strat-name">Mise Fixe</span>
+            <span class="strat-risk low">Faible risque</span>
+          </div>
+          <div class="strat-desc">Miser toujours le meme montant. Cashout automatique a un multiplicateur fixe. La plus prudente.</div>
+          <div class="strat-params" id="params-flat">
+            <div class="field"><label>Cashout cible</label><input type="number" id="flat-cashout" value="1.5" min="1.1" step="0.1" style="width:100px;"></div>
+          </div>
+        </div>
+
+        <div class="strat-card" onclick="selectStrat('martingale')">
+          <div class="strat-header">
+            <span class="strat-name">Martingale</span>
+            <span class="strat-risk high">Tres risquee</span>
+          </div>
+          <div class="strat-desc">Doubler la mise apres chaque perte. Revenir a la mise de base apres un gain. Ruine rapide possible.</div>
+          <div class="strat-params" id="params-martingale">
+            <div class="field"><label>Cashout cible</label><input type="number" id="mart-cashout" value="2" min="1.1" step="0.1" style="width:100px;"></div>
+          </div>
+        </div>
+
+        <div class="strat-card" onclick="selectStrat('antimartingale')">
+          <div class="strat-header">
+            <span class="strat-name">Anti-Martingale</span>
+            <span class="strat-risk mid">Risque modere</span>
+          </div>
+          <div class="strat-desc">Doubler la mise apres chaque gain. Revenir a la base apres une perte. Profite des series.</div>
+          <div class="strat-params" id="params-antimartingale">
+            <div style="display:flex;gap:8px;">
+              <div class="field"><label>Cashout</label><input type="number" id="am-cashout" value="2" min="1.1" step="0.1" style="width:80px;"></div>
+              <div class="field"><label>Max doublement</label><input type="number" id="am-maxdouble" value="3" min="1" max="10" style="width:70px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="strat-card" onclick="selectStrat('fibonacci')">
+          <div class="strat-header">
+            <span class="strat-name">Fibonacci</span>
+            <span class="strat-risk mid">Risque modere</span>
+          </div>
+          <div class="strat-desc">Suivre la suite de Fibonacci pour les mises (1,1,2,3,5,8...). Progression moins agressive que Martingale.</div>
+          <div class="strat-params" id="params-fibonacci">
+            <div class="field"><label>Cashout cible</label><input type="number" id="fib-cashout" value="2" min="1.1" step="0.1" style="width:100px;"></div>
+          </div>
+        </div>
+
+        <div class="strat-card" onclick="selectStrat('dalembert')">
+          <div class="strat-header">
+            <span class="strat-name">D Alembert</span>
+            <span class="strat-risk mid">Risque modere</span>
+          </div>
+          <div class="strat-desc">Augmenter la mise d une unite apres une perte, diminuer d une unite apres un gain. Plus douce que Martingale.</div>
+          <div class="strat-params" id="params-dalembert">
+            <div style="display:flex;gap:8px;">
+              <div class="field"><label>Cashout</label><input type="number" id="dal-cashout" value="2" min="1.1" step="0.1" style="width:80px;"></div>
+              <div class="field"><label>Unite (DH)</label><input type="number" id="dal-unit" value="5" min="1" style="width:70px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="strat-card" onclick="selectStrat('paroli')">
+          <div class="strat-header">
+            <span class="strat-name">Paroli (3 gains)</span>
+            <span class="strat-risk low">Faible risque</span>
+          </div>
+          <div class="strat-desc">Doubler la mise sur 3 gains consecutifs puis revenir a la base. Limite les pertes tout en profitant des series.</div>
+          <div class="strat-params" id="params-paroli">
+            <div class="field"><label>Cashout cible</label><input type="number" id="par-cashout" value="2" min="1.1" step="0.1" style="width:100px;"></div>
+          </div>
+        </div>
+
+        <div class="strat-card" onclick="selectStrat('labouchere')">
+          <div class="strat-header">
+            <span class="strat-name">Labouchere</span>
+            <span class="strat-risk high">Risquee</span>
+          </div>
+          <div class="strat-desc">Sequence de nombres dont la somme est l objectif de gain. Miser la somme du premier et dernier nombre.</div>
+          <div class="strat-params" id="params-labouchere">
+            <div style="display:flex;gap:8px;">
+              <div class="field"><label>Cashout</label><input type="number" id="lab-cashout" value="2" min="1.1" step="0.1" style="width:80px;"></div>
+              <div class="field"><label>Objectif (DH)</label><input type="number" id="lab-target" value="50" min="5" style="width:80px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="strat-card" onclick="selectStrat('oscar')">
+          <div class="strat-header">
+            <span class="strat-name">Oscar Grind</span>
+            <span class="strat-risk low">Faible risque</span>
+          </div>
+          <div class="strat-desc">Augmenter la mise d une unite apres chaque gain, garder la meme apres une perte. Vise un profit de +1 unite par cycle.</div>
+          <div class="strat-params" id="params-oscar">
+            <div class="field"><label>Cashout cible</label><input type="number" id="osc-cashout" value="2" min="1.1" step="0.1" style="width:100px;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap;">
+      <button class="btn btn-accent" onclick="runSimulation()">Lancer la simulation</button>
+      <button class="btn btn-ghost" onclick="resetSim()">Reinitialiser</button>
+    </div>
+
+    <div id="sim-result" style="display:none;">
+      <div class="card">
+        <div class="card-title" id="sim-result-title">Resultats</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem;" id="sim-metrics"></div>
+        <div style="position:relative;width:100%;height:240px;"><canvas id="sim-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Detail des rounds</div>
+        <div id="sim-log" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;font-size:12px;"></div>
+      </div>
+      <div class="card" style="background:var(--red-dim);border-color:var(--red);">
+        <div style="font-size:12px;color:var(--red);font-weight:500;margin-bottom:6px;">RAPPEL IMPORTANT</div>
+        <div style="font-size:13px;color:var(--text2);">Cette simulation utilise des probabilites aleatoires. Les resultats reels sur 1xbet seront differents. Aucune strategie ne garantit des gains sur le long terme — le casino a toujours un avantage mathematique integre.</div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <div id="tab-simulator" class="section">
+    <div class="card">
+      <div class="card-title">Simulateur de strategies</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;">Testez virtuellement une strategie avant de jouer avec de l argent reel. Les resultats sont bases sur des crashes aleatoires simules (RNG).</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">
+        <div class="field">
+          <label>Strategie</label>
+          <select id="sim-strategy" onchange="updateSimDesc()">
+            <option value="flat">Mise fixe (Flat Betting)</option>
+            <option value="martingale">Martingale (doubler apres perte)</option>
+            <option value="antimartingale">Anti-Martingale (doubler apres gain)</option>
+            <option value="fibonacci">Fibonacci</option>
+            <option value="dalembert">D Alembert</option>
+            <option value="paroli">Paroli (3 gains consecutifs)</option>
+            <option value="labouchere">Labouchere</option>
+            <option value="conservative">Conservative (1.2x cashout)</option>
+            <option value="aggressive">Aggressive (5x cashout)</option>
+            <option value="mixed">Mixte (1.5x et 3x alternance)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Budget de depart (DH)</label>
+          <input type="number" id="sim-budget" value="100" min="10">
+        </div>
+        <div class="field">
+          <label>Mise initiale (DH)</label>
+          <input type="number" id="sim-mise" value="10" min="1">
+        </div>
+        <div class="field">
+          <label>Nombre de rounds</label>
+          <input type="number" id="sim-rounds" value="50" min="5" max="500">
+        </div>
+        <div class="field">
+          <label>Cashout cible (multiplicateur)</label>
+          <input type="number" id="sim-cashout" value="2" min="1.01" step="0.1">
+        </div>
+        <div class="field">
+          <label>Stop gain (DH, 0 = desactive)</label>
+          <input type="number" id="sim-stopgain" value="0" min="0">
+        </div>
+      </div>
+
+      <div id="sim-desc" style="font-size:12px;color:var(--purple);background:var(--purple-dim);border:1px solid var(--purple);border-radius:8px;padding:10px 14px;margin-bottom:1rem;"></div>
+
+      <button class="btn btn-accent" onclick="runSimulation()" style="margin-bottom:1rem;">Lancer la simulation</button>
+      <button class="btn btn-ghost" onclick="runSimulation()" style="margin-bottom:1rem;">Relancer (nouveau RNG)</button>
+    </div>
+
+    <div id="sim-results" style="display:none;">
+      <div class="metrics" style="margin-bottom:1rem;">
+        <div class="metric-card">
+          <div class="metric-label">Budget final</div>
+          <div class="metric-val" id="sim-r-final">-</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Gain / Perte</div>
+          <div class="metric-val" id="sim-r-net">-</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Taux victoire</div>
+          <div class="metric-val accent" id="sim-r-winrate">-</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Rounds joues</div>
+          <div class="metric-val" id="sim-r-rounds">-</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Evolution du solde</div>
+        <div style="position:relative;width:100%;height:220px;"><canvas id="sim-chart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Detail des rounds</div>
+        <div id="sim-log" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;font-size:12px;"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -473,11 +732,11 @@ function getStreaks(){
 }
 
 function switchTab(name){
-  var tabs=['log','history','stats','settings'];
+  var tabs=['log','history','stats','sim','settings'];
   document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',tabs[i]===name);});
   document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
   document.getElementById('tab-'+name).classList.add('active');
-  if(name==='stats') renderStats();
+  if(name==='stats') renderStats(); if(name==='sim') initSim();
 }
 
 function toggleGain(){
@@ -764,6 +1023,349 @@ function exportCSV(){
   a.download='crash-tracker-'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv';
   a.click();
 }
+
+
+var currentStrat = 'flat';
+var simChartInst = null;
+
+function selectStrat(name){
+  currentStrat = name;
+  document.querySelectorAll('.strat-card').forEach(function(c){c.classList.remove('selected');});
+  var idx = ['flat','martingale','antimartingale','fibonacci','dalembert','paroli','labouchere','oscar'];
+  document.querySelectorAll('.strat-card')[idx.indexOf(name)].classList.add('selected');
+}
+
+function initSim(){
+  selectStrat('flat');
+}
+
+function simPreview(){}
+
+function resetSim(){
+  document.getElementById('sim-result').style.display='none';
+  if(simChartInst){simChartInst.destroy();simChartInst=null;}
+}
+
+function runSimulation(){
+  var capital = parseFloat(document.getElementById('sim-capital').value)||100;
+  var rounds  = parseInt(document.getElementById('sim-rounds').value)||50;
+  var baseBet = parseFloat(document.getElementById('sim-base-bet').value)||10;
+  var prob    = parseFloat(document.getElementById('sim-prob').value)/100;
+
+  var results = simulateStrategy(currentStrat, capital, rounds, baseBet, prob);
+
+  document.getElementById('sim-result').style.display='block';
+  document.getElementById('sim-result-title').textContent = 'Resultats - ' + getStratName(currentStrat) + ' ('+rounds+' rounds)';
+
+  var finalCap = results.capitals[results.capitals.length-1];
+  var net = Math.round((finalCap - capital)*100)/100;
+  var wins = results.log.filter(function(r){return r.win;}).length;
+  var maxDraw = 0, peak = capital;
+  results.capitals.forEach(function(c){ if(c>peak)peak=c; var dd=peak-c; if(dd>maxDraw)maxDraw=dd; });
+
+  document.getElementById('sim-metrics').innerHTML =
+    metricBox('Capital final', finalCap.toFixed(0)+' DH', finalCap>=capital?'green':'red') +
+    metricBox('Bilan net', (net>=0?'+':'')+net+' DH', net>=0?'green':'red') +
+    metricBox('Victoires', wins+' / '+rounds+' ('+ Math.round(wins/rounds*100)+'%)', 'accent') +
+    metricBox('Max drawdown', '-'+maxDraw.toFixed(0)+' DH', 'amber');
+
+  renderSimLog(results.log);
+  renderSimChart(results.capitals, capital);
+  document.getElementById('sim-result').scrollIntoView({behavior:'smooth'});
+}
+
+function metricBox(label, val, color){
+  return '<div style="background:var(--surface2);border-radius:var(--radius-sm);padding:.85rem 1rem;">'
+    +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;">'+label+'</div>'
+    +'<div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--'+color+');">'+val+'</div>'
+    +'</div>';
+}
+
+function renderSimLog(log){
+  var el = document.getElementById('sim-log');
+  el.innerHTML = log.slice().reverse().map(function(r,i){
+    return '<div class="sim-round" style="border-color:'+(r.win?'rgba(45,217,143,0.2)':'rgba(240,82,82,0.15)')+';">'
+      +'<span style="color:var(--text3);min-width:28px;">#'+(log.length-i)+'</span>'
+      +'<span class="badge '+(r.win?'badge-win':'badge-loss')+'">'+(r.win?'WIN':'LOSE')+'</span>'
+      +'<span style="color:var(--text2);">Mise: <strong style="color:var(--text);">'+r.bet.toFixed(0)+' DH</strong></span>'
+      +'<span style="color:'+(r.pnl>=0?'var(--green)':'var(--red)')+';">'+(r.pnl>=0?'+':'')+r.pnl.toFixed(0)+' DH</span>'
+      +'<span style="font-family:var(--mono);font-size:11px;color:var(--text3);">Capital: '+r.capital.toFixed(0)+' DH</span>'
+      +'</div>';
+  }).join('');
+}
+
+function renderSimChart(capitals, startCapital){
+  if(simChartInst){simChartInst.destroy();}
+  var ctx = document.getElementById('sim-chart');
+  var colors = capitals.map(function(c){return c>=startCapital?'rgba(45,217,143,0.7)':'rgba(240,82,82,0.7)';});
+  simChartInst = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels: capitals.map(function(_,i){return 'R'+(i+1);}),
+      datasets:[
+        {data:capitals,borderColor:'#4f8ef7',borderWidth:2,fill:false,tension:0.3,pointRadius:0,pointHoverRadius:4},
+        {data:capitals.map(function(){return startCapital;}),borderColor:'rgba(255,255,255,0.15)',borderWidth:1,borderDash:[4,4],fill:false,pointRadius:0}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        y:{ticks:{callback:function(v){return v+' DH';},color:'#555a72',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},border:{color:'rgba(255,255,255,.05)'}},
+        x:{ticks:{color:'#555a72',font:{size:10},maxTicksLimit:10},grid:{display:false},border:{color:'rgba(255,255,255,.05)'}}
+      }
+    }
+  });
+}
+
+function getStratName(s){
+  var names={flat:'Mise Fixe',martingale:'Martingale',antimartingale:'Anti-Martingale',fibonacci:'Fibonacci',dalembert:'D Alembert',paroli:'Paroli',labouchere:'Labouchere',oscar:'Oscar Grind'};
+  return names[s]||s;
+}
+
+function simulateStrategy(strat, capital, rounds, baseBet, prob){
+  var capitals=[capital], log=[];
+  var bet=baseBet, currentCapital=capital;
+  var fibSeq=[1,1,2,3,5,8,13,21,34,55,89], fibIdx=0;
+  var consecutiveWins=0, labSeq=null, oscarCycle=0;
+
+  if(strat==='labouchere'){
+    var target=parseFloat(document.getElementById('lab-target').value)||50;
+    var unit=baseBet;
+    var steps=Math.ceil(target/unit);
+    labSeq=[];
+    for(var i=0;i<steps;i++) labSeq.push(unit);
+  }
+
+  for(var r=0;r<rounds;r++){
+    if(currentCapital<=0){log.push({bet:0,win:false,pnl:0,capital:0});capitals.push(0);continue;}
+
+    // calculer la mise selon la strategie
+    if(strat==='flat'){
+      bet=baseBet;
+    } else if(strat==='martingale'){
+      // bet already set
+    } else if(strat==='antimartingale'){
+      var maxD=parseInt(document.getElementById('am-maxdouble').value)||3;
+      if(consecutiveWins>=maxD) bet=baseBet;
+    } else if(strat==='fibonacci'){
+      bet=baseBet*fibSeq[Math.min(fibIdx,fibSeq.length-1)];
+    } else if(strat==='dalembert'){
+      // bet already set
+    } else if(strat==='paroli'){
+      if(consecutiveWins>=3) bet=baseBet;
+    } else if(strat==='oscar'){
+      // bet already set
+    } else if(strat==='labouchere'){
+      if(!labSeq||labSeq.length===0){labSeq=null;break;}
+      bet=labSeq.length===1?labSeq[0]:labSeq[0]+labSeq[labSeq.length-1];
+    }
+
+    bet=Math.max(1,Math.min(bet,currentCapital));
+    var win=Math.random()>prob;
+
+    var cashout, pnl;
+    if(win){
+      cashout=getCashout(strat);
+      pnl=Math.round((bet*cashout-bet)*100)/100;
+    } else {
+      pnl=-bet;
+    }
+    currentCapital=Math.round((currentCapital+pnl)*100)/100;
+    log.push({bet:bet,win:win,pnl:pnl,capital:currentCapital});
+    capitals.push(Math.max(0,currentCapital));
+
+    // mise suivante selon la strategie
+    if(strat==='martingale'){
+      bet=win?baseBet:Math.min(bet*2,currentCapital);
+    } else if(strat==='antimartingale'){
+      consecutiveWins=win?consecutiveWins+1:0;
+      bet=win?(consecutiveWins<(parseInt(document.getElementById('am-maxdouble').value)||3)?bet*2:baseBet):baseBet;
+    } else if(strat==='fibonacci'){
+      if(win){fibIdx=Math.max(0,fibIdx-2);}else{fibIdx=Math.min(fibIdx+1,fibSeq.length-1);}
+      bet=baseBet*fibSeq[fibIdx];
+    } else if(strat==='dalembert'){
+      var unit=parseFloat(document.getElementById('dal-unit').value)||5;
+      bet=win?Math.max(baseBet,bet-unit):bet+unit;
+    } else if(strat==='paroli'){
+      consecutiveWins=win?consecutiveWins+1:0;
+      if(!win||consecutiveWins>=3){bet=baseBet;consecutiveWins=0;}
+      else{bet=bet*2;}
+    } else if(strat==='labouchere'){
+      if(labSeq&&labSeq.length>0){
+        if(win){if(labSeq.length>=2){labSeq.shift();labSeq.pop();}else{labSeq=[];}}
+        else{labSeq.push(bet);}
+      }
+    } else if(strat==='oscar'){
+      oscarCycle+=pnl;
+      if(win&&oscarCycle<baseBet){bet=Math.min(bet+baseBet,baseBet-oscarCycle);}
+      else if(win&&oscarCycle>=baseBet){bet=baseBet;oscarCycle=0;}
+      // perte: garder la meme mise
+    }
+  }
+  return {capitals:capitals,log:log};
+}
+
+function getCashout(strat){
+  var map={flat:'flat-cashout',martingale:'mart-cashout',antimartingale:'am-cashout',fibonacci:'fib-cashout',dalembert:'dal-cashout',paroli:'par-cashout',labouchere:'lab-cashout',oscar:'osc-cashout'};
+  return parseFloat(document.getElementById(map[strat]).value)||2;
+}
+
+
+// ---- SIMULATEUR ----
+var SIM_DESCRIPTIONS = {
+  flat: "Mise fixe a chaque round. La strategie la plus simple. Vous misez toujours le meme montant peu importe le resultat precedent.",
+  martingale: "Doublez la mise apres chaque perte, revenez a la mise initiale apres un gain. Recupere les pertes rapidement mais tres risque : une serie de defaites peut epuiser le budget.",
+  antimartingale: "Doublez la mise apres chaque gain, revenez a la mise initiale apres une perte. Exploite les series gagnantes mais perd les profits rapidement.",
+  fibonacci: "Suivez la sequence Fibonacci (1,1,2,3,5,8,13...) pour augmenter la mise apres chaque perte. Plus prudent que la Martingale mais toujours risque.",
+  dalembert: "Augmentez la mise de 1 unite apres une perte, diminuez de 1 unite apres un gain. Progression douce, moins risquee que la Martingale.",
+  paroli: "Doublez la mise 3 fois consecutives apres un gain, puis revenez au debut. Exploite les series gagnantes de facon controlee.",
+  labouchere: "Utilisez une sequence de nombres. La mise = premier + dernier nombre. Apres gain : supprimez les 2 extremes. Apres perte : ajoutez le total a la fin.",
+  conservative: "Cashout systematique a 1.2x pour maximiser les victoires. Gains faibles mais taux de victoire eleve. Bon pour limiter les pertes.",
+  aggressive: "Cashout uniquement a 5x ou plus. Gains importants mais rares. La plupart des rounds se terminent en perte.",
+  mixed: "Alternance entre cashout a 1.5x (mise normale) et cashout a 3x (mise reduite). Equilitre entre securite et rendement."
+};
+
+function updateSimDesc(){
+  var s = document.getElementById('sim-strategy').value;
+  document.getElementById('sim-desc').textContent = SIM_DESCRIPTIONS[s] || '';
+}
+
+function generateCrash(){
+  // Distribution realiste : beaucoup de crashs bas, quelques hauts
+  var r = Math.random();
+  if(r < 0.45) return 1.0 + Math.random() * 0.49;  // 45% : crash entre 1x et 1.49x
+  if(r < 0.70) return 1.5 + Math.random() * 0.99;  // 25% : 1.5x - 2.49x
+  if(r < 0.85) return 2.5 + Math.random() * 2.49;  // 15% : 2.5x - 4.99x
+  if(r < 0.94) return 5.0 + Math.random() * 4.99;  // 9%  : 5x - 9.99x
+  return 10.0 + Math.random() * 40.0;               // 6%  : 10x - 50x
+}
+
+function runSimulation(){
+  var strategy = document.getElementById('sim-strategy').value;
+  var startBudget = parseFloat(document.getElementById('sim-budget').value) || 100;
+  var baseMise = parseFloat(document.getElementById('sim-mise').value) || 10;
+  var maxRounds = parseInt(document.getElementById('sim-rounds').value) || 50;
+  var cashoutTarget = parseFloat(document.getElementById('sim-cashout').value) || 2;
+  var stopGain = parseFloat(document.getElementById('sim-stopgain').value) || 0;
+
+  var budget = startBudget;
+  var mise = baseMise;
+  var rounds = [];
+  var balanceHistory = [startBudget];
+  var wins = 0, losses = 0;
+
+  // Labouchere sequence
+  var lseq = [1,2,3,4];
+
+  // Fibonacci sequence
+  var fibSeq = [1,1,2,3,5,8,13,21,34,55];
+  var fibIdx = 0;
+
+  // Paroli counter
+  var paroli = 0;
+
+  // DAlembert unit
+  var daUnit = baseMise;
+
+  for(var i=0; i<maxRounds; i++){
+    if(budget <= 0){ rounds.push({r:i+1,crash:0,mise:0,result:'stop',budget:0,note:'Budget epuise'}); break; }
+    if(stopGain > 0 && budget >= startBudget + stopGain){ rounds.push({r:i+1,crash:0,mise:0,result:'stop',budget:budget,note:'Stop gain atteint'}); break; }
+
+    // Calculate mise based on strategy
+    if(strategy==='flat') mise = baseMise;
+    else if(strategy==='martingale'){ /* updated after result */ }
+    else if(strategy==='antimartingale'){ /* updated after result */ }
+    else if(strategy==='fibonacci') mise = fibSeq[Math.min(fibIdx, fibSeq.length-1)] * baseMise;
+    else if(strategy==='dalembert') mise = Math.max(baseMise, daUnit);
+    else if(strategy==='paroli'){ /* updated after result */ }
+    else if(strategy==='labouchere'){
+      if(lseq.length===0) lseq=[1,2,3,4];
+      mise = lseq.length===1 ? lseq[0]*baseMise : (lseq[0]+lseq[lseq.length-1])*baseMise;
+    }
+    else if(strategy==='conservative'){ mise=baseMise; cashoutTarget=1.2; }
+    else if(strategy==='aggressive'){ mise=baseMise; cashoutTarget=5.0; }
+    else if(strategy==='mixed'){
+      if(i%2===0){mise=baseMise;cashoutTarget=1.5;}
+      else{mise=Math.max(1,baseMise/2);cashoutTarget=3.0;}
+    }
+
+    mise = Math.min(mise, budget);
+    mise = Math.max(1, Math.round(mise));
+
+    var crash = generateCrash();
+    var won = crash >= cashoutTarget;
+    var gain = won ? Math.round(mise * cashoutTarget * 100) / 100 : 0;
+
+    if(won){
+      budget = Math.round((budget - mise + gain)*100)/100;
+      wins++;
+    } else {
+      budget = Math.round((budget - mise)*100)/100;
+      losses++;
+    }
+    budget = Math.max(0, budget);
+    balanceHistory.push(budget);
+
+    // Update strategy state after result
+    if(strategy==='martingale') mise = won ? baseMise : mise*2;
+    else if(strategy==='antimartingale') mise = won ? mise*2 : baseMise;
+    else if(strategy==='fibonacci'){
+      if(won) fibIdx = Math.max(0, fibIdx-2);
+      else fibIdx = Math.min(fibSeq.length-1, fibIdx+1);
+    }
+    else if(strategy==='dalembert'){
+      daUnit = won ? Math.max(baseMise, daUnit-baseMise) : daUnit+baseMise;
+    }
+    else if(strategy==='paroli'){
+      if(won){ paroli++; if(paroli>=3){mise=baseMise;paroli=0;}else{mise=mise*2;} }
+      else{ mise=baseMise; paroli=0; }
+    }
+    else if(strategy==='labouchere'){
+      if(won){ if(lseq.length>=2){lseq.shift();lseq.pop();}else{lseq=[];} }
+      else{ lseq.push(lseq.length>0?(lseq[0]+lseq[lseq.length-1]):1); }
+    }
+
+    rounds.push({r:i+1, crash:crash.toFixed(2), mise:mise, result:won?'win':'loss', budget:budget, note:won?('Crash '+crash.toFixed(2)+'x - cashout '+cashoutTarget+'x'):('Crash '+crash.toFixed(2)+'x')});
+  }
+
+  var finalBudget = budget;
+  var net = Math.round((finalBudget - startBudget)*100)/100;
+  var totalRounds = rounds.filter(function(r){return r.result!=='stop';}).length;
+  var winRate = totalRounds > 0 ? Math.round(wins/totalRounds*100) : 0;
+
+  // Update result metrics
+  document.getElementById('sim-r-final').textContent = finalBudget + ' DH';
+  document.getElementById('sim-r-final').className = 'metric-val ' + (finalBudget > startBudget ? 'green' : finalBudget < startBudget ? 'red' : '');
+  document.getElementById('sim-r-net').textContent = (net>=0?'+':'')+net+' DH';
+  document.getElementById('sim-r-net').className = 'metric-val ' + (net > 0 ? 'green' : net < 0 ? 'red' : '');
+  document.getElementById('sim-r-winrate').textContent = winRate + '%';
+  document.getElementById('sim-r-rounds').textContent = totalRounds;
+
+  // Chart
+  if(window._simChart) window._simChart.destroy();
+  var ctx = document.getElementById('sim-chart');
+  var labels = balanceHistory.map(function(v,i){return i===0?'Debut':'R'+i;});
+  var colors = balanceHistory.map(function(v){ return v >= startBudget ? '#2dd98f' : '#f05252'; });
+  window._simChart = new Chart(ctx, {
+    type:'line',
+    data:{labels:labels,datasets:[{data:balanceHistory,borderColor:'#4f8ef7',backgroundColor:'rgba(79,142,247,0.08)',borderWidth:2,pointRadius:0,tension:0.3,fill:true},{data:Array(balanceHistory.length).fill(startBudget),borderColor:'rgba(255,255,255,0.15)',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return v+' DH';},color:'#555a72',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},border:{color:'rgba(255,255,255,.05)'}},x:{ticks:{maxTicksLimit:10,color:'#555a72',font:{size:10}},grid:{display:false},border:{color:'rgba(255,255,255,.05)'}}}}
+  });
+
+  // Log
+  var logEl = document.getElementById('sim-log');
+  logEl.innerHTML = rounds.slice(0,100).map(function(r){
+    if(r.result==='stop') return '<div class="sim-round-stop">Round '+r.r+' - '+r.note+' - Solde : '+r.budget+' DH</div>';
+    return '<div class="sim-round-'+(r.result==='win'?'win':'loss')+'">'
+      +'R'+r.r+' | Mise: '+r.mise+' DH | '+r.note
+      +' | Solde: <strong>'+r.budget+' DH</strong></div>';
+  }).join('');
+  if(rounds.length>100) logEl.innerHTML += '<div style="color:var(--text3);font-size:11px;text-align:center;padding:8px;">...et '+(rounds.length-100)+' autres rounds</div>';
+
+  document.getElementById('sim-results').style.display = 'block';
+}
+
 
 toggleGain();
 syncSettings();
