@@ -325,7 +325,6 @@ select option{background:var(--surface2);}
     <button class="tab" onclick="switchTab('stats')">Statistiques</button>
     <button class="tab" onclick="switchTab('sim')">🎮 Simulateur</button>
     <button class="tab" onclick="switchTab('settings')">Parametres</button>
-    <button class="tab" onclick="switchTab('simulator')">🎮 Simulateur</button>
   </div>
 
   <div id="tab-log" class="section active">
@@ -621,88 +620,6 @@ select option{background:var(--surface2);}
       </div>
     </div>
 
-  </div>
-
-
-  <div id="tab-simulator" class="section">
-    <div class="card">
-      <div class="card-title">Simulateur de strategies</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;">Testez virtuellement une strategie avant de jouer avec de l argent reel. Les resultats sont bases sur des crashes aleatoires simules (RNG).</p>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">
-        <div class="field">
-          <label>Strategie</label>
-          <select id="sim-strategy" onchange="updateSimDesc()">
-            <option value="flat">Mise fixe (Flat Betting)</option>
-            <option value="martingale">Martingale (doubler apres perte)</option>
-            <option value="antimartingale">Anti-Martingale (doubler apres gain)</option>
-            <option value="fibonacci">Fibonacci</option>
-            <option value="dalembert">D Alembert</option>
-            <option value="paroli">Paroli (3 gains consecutifs)</option>
-            <option value="labouchere">Labouchere</option>
-            <option value="conservative">Conservative (1.2x cashout)</option>
-            <option value="aggressive">Aggressive (5x cashout)</option>
-            <option value="mixed">Mixte (1.5x et 3x alternance)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Budget de depart (DH)</label>
-          <input type="number" id="sim-budget" value="100" min="10">
-        </div>
-        <div class="field">
-          <label>Mise initiale (DH)</label>
-          <input type="number" id="sim-mise" value="10" min="1">
-        </div>
-        <div class="field">
-          <label>Nombre de rounds</label>
-          <input type="number" id="sim-rounds" value="50" min="5" max="500">
-        </div>
-        <div class="field">
-          <label>Cashout cible (multiplicateur)</label>
-          <input type="number" id="sim-cashout" value="2" min="1.01" step="0.1">
-        </div>
-        <div class="field">
-          <label>Stop gain (DH, 0 = desactive)</label>
-          <input type="number" id="sim-stopgain" value="0" min="0">
-        </div>
-      </div>
-
-      <div id="sim-desc" style="font-size:12px;color:var(--purple);background:var(--purple-dim);border:1px solid var(--purple);border-radius:8px;padding:10px 14px;margin-bottom:1rem;"></div>
-
-      <button class="btn btn-accent" onclick="runSimulation()" style="margin-bottom:1rem;">Lancer la simulation</button>
-      <button class="btn btn-ghost" onclick="runSimulation()" style="margin-bottom:1rem;">Relancer (nouveau RNG)</button>
-    </div>
-
-    <div id="sim-results" style="display:none;">
-      <div class="metrics" style="margin-bottom:1rem;">
-        <div class="metric-card">
-          <div class="metric-label">Budget final</div>
-          <div class="metric-val" id="sim-r-final">-</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Gain / Perte</div>
-          <div class="metric-val" id="sim-r-net">-</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Taux victoire</div>
-          <div class="metric-val accent" id="sim-r-winrate">-</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Rounds joues</div>
-          <div class="metric-val" id="sim-r-rounds">-</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Evolution du solde</div>
-        <div style="position:relative;width:100%;height:220px;"><canvas id="sim-chart"></canvas></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Detail des rounds</div>
-        <div id="sim-log" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;font-size:12px;"></div>
-      </div>
-    </div>
   </div>
 
 </div>
