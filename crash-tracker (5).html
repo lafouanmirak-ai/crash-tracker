@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crash Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#0d0f14;--surface:#161820;--surface2:#1e2029;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#f0f0f0;--text2:#8a8fa8;--text3:#555a72;
+  --accent:#4f8ef7;--accent-dim:rgba(79,142,247,0.12);
+  --green:#2dd98f;--green-dim:rgba(45,217,143,0.12);
+  --red:#f05252;--red-dim:rgba(240,82,82,0.12);
+  --amber:#f0a532;--amber-dim:rgba(240,165,50,0.12);
+  --purple:#a78bfa;--purple-dim:rgba(167,139,250,0.12);
+  --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+  --radius:12px;--radius-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+header{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2rem;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;}
+.logo{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.05em;color:var(--accent);}
+.logo span{color:var(--text2);font-weight:400;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.month-badge{font-family:var(--mono);font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);padding:4px 12px;border-radius:99px;}
+.btn-export{font-family:var(--mono);font-size:11px;color:var(--text3);background:transparent;border:1px solid var(--border);padding:4px 10px;border-radius:99px;cursor:pointer;transition:all .2s;}
+.btn-export:hover{color:var(--text);border-color:var(--border2);}
+.container{max-width:900px;margin:0 auto;padding:2rem 1.5rem;}
+.conseil{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--radius-sm);background:var(--purple-dim);border:1px solid var(--purple);color:var(--purple);font-size:13px;margin-bottom:1.5rem;}
+.alert{display:none;padding:12px 16px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:1.5rem;font-weight:500;}
+.alert.show{display:flex;align-items:center;gap:10px;}
+.alert-warn{background:var(--amber-dim);border:1px solid var(--amber);color:var(--amber);}
+.alert-danger{background:var(--red-dim);border:1px solid var(--red);color:var(--red);}
+.alert-dot{width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.last-session{display:none;align-items:center;justify-content:space-between;padding:10px 16px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);margin-bottom:1rem;font-size:13px;}
+.last-session.show{display:flex;}
+.last-label{color:var(--text3);font-size:11px;margin-right:8px;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1rem;}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;}
+.metric-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+.metric-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);}
+.metric-val.green{color:var(--green);}
+.metric-val.red{color:var(--red);}
+.metric-val.amber{color:var(--amber);}
+.metric-val.accent{color:var(--accent);}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:3px;}
+.streak-row{display:flex;gap:10px;margin-bottom:1rem;}
+.streak-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;display:flex;align-items:center;gap:10px;}
+.streak-icon{font-size:18px;}
+.streak-val{font-family:var(--mono);font-size:16px;font-weight:700;}
+.streak-lbl{font-size:11px;color:var(--text3);}
+.objectif-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1rem;}
+.progress-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;margin-bottom:1rem;}
+.progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.progress-title{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+.progress-pct{font-family:var(--mono);font-size:13px;color:var(--text2);}
+.progress-bar{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:99px;transition:width .5s,background .3s;}
+.progress-sub{display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-top:6px;}
+.tabs{display:flex;gap:6px;margin-bottom:1.5rem;flex-wrap:wrap;}
+.tab{padding:7px 18px;font-size:13px;font-family:var(--sans);font-weight:500;border:1px solid var(--border);border-radius:99px;background:transparent;color:var(--text2);cursor:pointer;transition:all .2s;}
+.tab:hover{border-color:var(--border2);color:var(--text);}
+.tab.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.section{display:none;}.section.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem;}
+.card-title{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:1.1rem;}
+.form-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:12px;color:var(--text2);}
+input[type=number],input[type=text],select{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:14px;font-family:var(--sans);outline:none;width:100%;transition:border .2s;}
+input:focus,select:focus{border-color:var(--accent);}
+select option{background:var(--surface2);}
+.calc-hint{font-size:11px;color:var(--green);margin-top:3px;min-height:16px;}
+.quick-notes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
+.qnote{font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--sans);}
+.qnote:hover{background:var(--surface2);color:var(--text);}
+.qnote.active-win{border-color:var(--green);background:var(--green-dim);color:var(--green);}
+.qnote.active-loss{border-color:var(--red);background:var(--red-dim);color:var(--red);}
+.qnote.active-neutral{border-color:var(--amber);background:var(--amber-dim);color:var(--amber);}
+.notes-label{font-size:11px;color:var(--text3);margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;font-size:13px;font-weight:500;font-family:var(--sans);border-radius:var(--radius-sm);cursor:pointer;transition:all .18s;border:1px solid transparent;}
+.btn-accent{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.btn-accent:hover{background:var(--accent);color:#fff;}
+.btn-red{background:var(--red-dim);border-color:var(--red);color:var(--red);}
+.btn-red:hover{background:var(--red);color:#fff;}
+.btn-ghost{background:transparent;border-color:var(--border2);color:var(--text2);}
+.btn-ghost:hover{background:var(--surface2);color:var(--text);}
+.session-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
+.session-list::-webkit-scrollbar{width:4px;}
+.session-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;}
+.session-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:13px;}
+.session-left{display:flex;align-items:center;gap:10px;flex:1;}
+.session-info{color:var(--text);}
+.session-note{font-size:11px;color:var(--text3);margin-top:2px;}
+.session-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.session-date{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.btn-del{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:all .15s;}
+.btn-del:hover{color:var(--red);background:var(--red-dim);}
+.badge{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:.05em;}
+.badge-win{background:var(--green-dim);color:var(--green);border:1px solid var(--green);}
+.badge-loss{background:var(--red-dim);color:var(--red);border:1px solid var(--red);}
+.badge-bonus{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber);font-size:9px;}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem;}
+.stat-box{background:var(--surface2);border-radius:var(--radius-sm);padding:.85rem 1rem;text-align:center;}
+.stat-box-label{font-size:11px;color:var(--text3);margin-bottom:4px;}
+.stat-box-val{font-family:var(--mono);font-size:20px;font-weight:700;}
+.chart-wrap{position:relative;width:100%;height:220px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;}
+.modal-overlay.hidden{display:none;}
+.modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:2rem;width:90%;max-width:400px;}
+.modal-title{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:1.5rem;}
+.budget-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem;}
+.budget-opt{padding:12px 8px;text-align:center;font-family:var(--mono);font-size:14px;font-weight:700;border:1px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);background:var(--surface2);transition:all .18s;}
+.budget-opt:hover{border-color:var(--accent);color:var(--accent);}
+.budget-opt.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.budget-custom{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;}
+.budget-custom label{font-size:13px;color:var(--text2);white-space:nowrap;}
+.budget-custom input{flex:1;}
+.modal-section{margin-bottom:1.25rem;}
+.modal-section-title{font-size:12px;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
+.settings-group{display:flex;flex-direction:column;gap:14px;}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.setting-input{width:140px;}
+.empty{text-align:center;color:var(--text3);font-size:13px;padding:2.5rem 0;}
+@media(max-width:600px){
+  .metrics{grid-template-columns:repeat(2,1fr);}
+  .form-row{grid-template-columns:1fr 1fr;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  header{padding:1rem;}
+  .container{padding:1rem;}
+  .streak-row{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay hidden" id="budget-modal">
+  <div class="modal-box">
+    <div class="modal-title">Nouveau mois</div>
+    <div class="modal-sub">Configurez votre mois avant de commencer :</div>
+    <div class="modal-section">
+      <div class="modal-section-title">Budget d'investissement</div>
+      <div class="budget-options">
+        <div class="budget-opt" onclick="selectBudget(50)">50 DH</div>
+        <div class="budget-opt selected" onclick="selectBudget(100)">100 DH</div>
+        <div class="budget-opt" onclick="selectBudget(150)">150 DH</div>
+        <div class="budget-opt" onclick="selectBudget(200)">200 DH</div>
+        <div class="budget-opt" onclick="selectBudget(300)">300 DH</div>
+        <div class="budget-opt" onclick="selectBudget(500)">500 DH</div>
+      </div>
+      <div class="budget-custom">
+        <label>Personnalise :</label>
+        <input type="number" id="modal-custom" min="10" max="10000" placeholder="Ex: 250">
+        <span style="color:var(--text2);font-size:13px;">DH</span>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Objectif de gain mensuel (optionnel)</div>
+      <div class="budget-custom">
+        <input type="number" id="modal-objectif" min="0" placeholder="Ex: 150">
+        <span style="color:var(--text2);font-size:13px;">DH</span>
+      </div>
+    </div>
+    <button class="btn btn-accent" style="width:100%;justify-content:center;" onclick="confirmBudget()">Commencer le mois</button>
+  </div>
+</div>
+
+<header>
+  <div class="logo">CRASH<span>.tracker</span></div>
+  <div class="header-right">
+    <button class="btn-export" onclick="exportCSV()">Export CSV</button>
+    <div class="month-badge" id="month-badge">Mars 2026</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="conseil">
+    <span style="font-size:16px;flex-shrink:0;">💡</span>
+    <span id="conseil-msg">Chargement...</span>
+  </div>
+
+  <div class="alert" id="alert-zone">
+    <div class="alert-dot"></div>
+    <span id="alert-msg"></span>
+  </div>
+
+  <div class="last-session" id="last-session-banner">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="last-label">DERNIERE SESSION</span>
+      <span id="last-badge"></span>
+      <span id="last-info" style="color:var(--text);font-size:13px;"></span>
+    </div>
+    <span id="last-time" style="font-family:var(--mono);font-size:11px;color:var(--text3);"></span>
+  </div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Budget mensuel</div>
+      <div class="metric-val accent" id="m-budget">100 DH</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Depense</div>
+      <div class="metric-val amber" id="m-spent">0 DH</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Restant</div>
+      <div class="metric-val green" id="m-left">100 DH</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Bilan net</div>
+      <div class="metric-val" id="m-net">0 DH</div>
+    </div>
+    <div class="metric-card" style="grid-column:span 2;">
+      <div class="metric-label">Solde total du compte</div>
+      <div class="metric-val" id="m-solde">100 DH</div>
+      <div class="metric-sub">Budget initial + gains nets</div>
+    </div>
+    <div class="metric-card" style="grid-column:span 2;">
+      <div class="metric-label">Reserve gains (mode bonus)</div>
+      <div class="metric-val green" id="m-gains-reserve">0 DH</div>
+      <div class="metric-sub" id="m-gains-sub">Gains nets : 0 DH - max 50% utilisable</div>
+    </div>
+  </div>
+
+  <div class="streak-row">
+    <div class="streak-box">
+      <div class="streak-icon">🔥</div>
+      <div>
+        <div class="streak-val" id="streak-win" style="color:var(--green);">0</div>
+        <div class="streak-lbl">Serie victoires</div>
+      </div>
+    </div>
+    <div class="streak-box">
+      <div class="streak-icon">❄️</div>
+      <div>
+        <div class="streak-val" id="streak-loss" style="color:var(--red);">0</div>
+        <div class="streak-lbl">Serie defaites</div>
+      </div>
+    </div>
+    <div class="streak-box">
+      <div class="streak-icon">🎯</div>
+      <div>
+        <div class="streak-val" id="taux-win" style="color:var(--accent);">-</div>
+        <div class="streak-lbl">Taux victoire</div>
+      </div>
+    </div>
+    <div class="streak-box">
+      <div class="streak-icon">📊</div>
+      <div>
+        <div class="streak-val" id="mise-moy" style="color:var(--text2);">-</div>
+        <div class="streak-lbl">Mise moyenne</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="objectif-card" id="objectif-card" style="display:none;">
+    <div class="progress-header">
+      <div class="progress-title">Objectif de gain mensuel</div>
+      <div class="progress-pct" id="objectif-pct">0%</div>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="objectif-fill" style="width:0%;background:var(--green);"></div>
+    </div>
+    <div class="progress-sub">
+      <span id="objectif-label">0 / 0 DH</span>
+      <span id="objectif-restant"></span>
+    </div>
+  </div>
+
+  <div class="progress-card">
+    <div class="progress-header">
+      <div class="progress-title">Budget mensuel</div>
+      <div class="progress-pct" id="prog-pct">0%</div>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress" style="width:0%;background:var(--green);"></div>
+    </div>
+    <div class="progress-sub">
+      <span id="prog-label">0 / 100 DH utilises</span>
+      <span id="prog-sessions">0 sessions</span>
+    </div>
+  </div>
+
+  <div class="progress-card" id="gains-progress-card" style="display:none;">
+    <div class="progress-header">
+      <div class="progress-title">Utilisation gains nets (max 50%)</div>
+      <div class="progress-pct" id="gains-pct" style="color:var(--green);">0%</div>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="gains-progress" style="width:0%;background:var(--green);"></div>
+    </div>
+    <div class="progress-sub">
+      <span id="gains-label">0 / 0 DH utilises</span>
+      <span id="gains-restant" style="color:var(--green);">0 DH restants</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('log')">+ Session</button>
+    <button class="tab" onclick="switchTab('history')">Historique</button>
+    <button class="tab" onclick="switchTab('stats')">Statistiques</button>
+    <button class="tab" onclick="switchTab('settings')">Parametres</button>
+  </div>
+
+  <div id="tab-log" class="section active">
+    <div class="card">
+      <div class="card-title">Nouvelle session</div>
+      <div class="form-row">
+        <div class="field">
+          <label>Mise (DH)</label>
+          <input type="number" id="f-mise" min="1" value="10" placeholder="Ex: 10" oninput="calcGain()">
+        </div>
+        <div class="field">
+          <label>Resultat</label>
+          <select id="f-result" onchange="toggleGain()">
+            <option value="win">Gagne</option>
+            <option value="loss">Perdu</option>
+          </select>
+        </div>
+        <div class="field" id="f-mult-field">
+          <label>Multiplicateur cashout</label>
+          <input type="number" id="f-mult" min="1.01" step="0.01" placeholder="Ex: 2.5" oninput="calcGain()">
+          <div class="calc-hint" id="calc-hint"></div>
+        </div>
+        <div class="field" id="f-gain-field">
+          <label>Ou montant recupere (DH)</label>
+          <input type="number" id="f-gain" min="0" placeholder="Ex: 25" oninput="clearMult()">
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div class="notes-label">Notes rapides - Gains exceptionnels</div>
+        <div class="quick-notes">
+          <button class="qnote" onclick="toggleNote(this,'win')">🚀 Gros cashout</button>
+          <button class="qnote" onclick="toggleNote(this,'win')">🎯 Timing parfait</button>
+          <button class="qnote" onclick="toggleNote(this,'win')">⚡ Multiplicateur x5+</button>
+          <button class="qnote" onclick="toggleNote(this,'win')">🔥 Serie gagnante</button>
+          <button class="qnote" onclick="toggleNote(this,'win')">💎 Meilleur gain du mois</button>
+        </div>
+        <div class="notes-label" style="margin-top:8px;">Notes rapides - Pertes exceptionnelles</div>
+        <div class="quick-notes">
+          <button class="qnote" onclick="toggleNote(this,'loss')">💥 Crash trop tot</button>
+          <button class="qnote" onclick="toggleNote(this,'loss')">😤 Pas retire a temps</button>
+          <button class="qnote" onclick="toggleNote(this,'loss')">📉 Serie perdante</button>
+          <button class="qnote" onclick="toggleNote(this,'loss')">⏱️ Crash immediat</button>
+          <button class="qnote" onclick="toggleNote(this,'loss')">🎰 Trop gourmand</button>
+        </div>
+        <div class="notes-label" style="margin-top:8px;">Notes rapides - Generales</div>
+        <div class="quick-notes">
+          <button class="qnote" onclick="toggleNote(this,'neutral')">😐 Session normale</button>
+          <button class="qnote" onclick="toggleNote(this,'neutral')">🧪 Test de strategie</button>
+          <button class="qnote" onclick="toggleNote(this,'neutral')">🛑 Derniere mise</button>
+          <button class="qnote" onclick="toggleNote(this,'neutral')">🎲 Chance du debutant</button>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:14px;">
+        <label>Note personnalisee (optionnel)</label>
+        <input type="text" id="f-note" placeholder="Ajouter un commentaire libre...">
+      </div>
+      <button class="btn btn-accent" onclick="addSession()">Enregistrer la session</button>
+    </div>
+  </div>
+
+  <div id="tab-history" class="section">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div class="card-title" style="margin-bottom:0;">Sessions ce mois</div>
+        <select id="filter-result" onchange="renderHistory()" style="font-size:12px;padding:4px 8px;width:auto;">
+          <option value="all">Toutes</option>
+          <option value="win">Victoires</option>
+          <option value="loss">Defaites</option>
+        </select>
+      </div>
+      <div class="session-list" id="session-list">
+        <div class="empty">Aucune session enregistree.</div>
+      </div>
+    </div>
+    <button class="btn btn-red" onclick="resetMonth()">Reinitialiser le mois</button>
+  </div>
+
+  <div id="tab-stats" class="section">
+    <div class="card">
+      <div class="card-title">Statistiques du mois</div>
+      <div id="stats-body"><div class="empty">Ajoutez des sessions pour voir les stats.</div></div>
+    </div>
+  </div>
+
+  <div id="tab-settings" class="section">
+    <div class="card">
+      <div class="card-title">Parametres</div>
+      <div class="settings-group">
+        <div class="setting-row">
+          <div>
+            <div style="font-size:14px;color:var(--text);margin-bottom:2px;">Budget mensuel</div>
+            <div style="font-size:12px;color:var(--text3);">Montant total alloue par mois</div>
+          </div>
+          <select class="setting-input" id="s-budget" onchange="handleBudgetSelect()">
+            <option value="50">50 DH</option>
+            <option value="100" selected>100 DH</option>
+            <option value="150">150 DH</option>
+            <option value="200">200 DH</option>
+            <option value="300">300 DH</option>
+            <option value="500">500 DH</option>
+            <option value="custom">Personnalise...</option>
+          </select>
+        </div>
+        <div class="setting-row" id="s-custom-row" style="display:none;">
+          <div><div style="font-size:14px;color:var(--text);">Montant personnalise</div></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" id="s-custom-val" min="10" max="10000" style="width:100px;">
+            <span style="color:var(--text2);">DH</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div style="font-size:14px;color:var(--text);margin-bottom:2px;">Objectif de gain mensuel</div>
+            <div style="font-size:12px;color:var(--text3);">Laisser a 0 pour desactiver</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" id="s-objectif" min="0" style="width:100px;" placeholder="0">
+            <span style="color:var(--text2);">DH</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div style="font-size:14px;color:var(--text);margin-bottom:2px;">Seuil d alerte</div>
+            <div style="font-size:12px;color:var(--text3);">Alerte quand X% du budget est utilise</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" id="s-alert" value="80" min="10" max="99" style="width:80px;">
+            <span style="color:var(--text2);">%</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="saveSettings()">Enregistrer</button>
+          <button class="btn btn-ghost" onclick="openBudgetModal()">Nouveau mois</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var state = JSON.parse(localStorage.getItem('crash_v4') || 'null') || {budget:100,alertPct:80,objectif:0,sessions:[]};
+function save(){localStorage.setItem('crash_v4',JSON.stringify(state));}
+
+function totalSpent(){return state.sessions.reduce(function(a,s){return a+s.mise;},0);}
+function totalGain(){return state.sessions.filter(function(s){return s.result==='win';}).reduce(function(a,s){return a+s.gain;},0);}
+function totalGainsNets(){return state.sessions.filter(function(s){return s.result==='win';}).reduce(function(a,s){return a+(s.gain-s.mise);},0);}
+function netBilan(){return totalGain()-totalSpent();}
+function totalSpentInBonus(){
+  var cum=0,bonus=0;
+  for(var i=0;i<state.sessions.length;i++){
+    if(cum>=state.budget) bonus+=state.sessions[i].mise;
+    cum+=state.sessions[i].mise;
+  }
+  return bonus;
+}
+function getStreaks(){
+  if(!state.sessions.length) return {win:0,loss:0};
+  var win=0,loss=0;
+  for(var i=state.sessions.length-1;i>=0;i--){if(state.sessions[i].result==='win')win++;else break;}
+  for(var i=state.sessions.length-1;i>=0;i--){if(state.sessions[i].result==='loss')loss++;else break;}
+  return {win:win,loss:loss};
+}
+
+function switchTab(name){
+  var tabs=['log','history','stats','settings'];
+  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',tabs[i]===name);});
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='stats') renderStats();
+}
+
+function toggleGain(){
+  var isWin=document.getElementById('f-result').value==='win';
+  document.getElementById('f-mult-field').style.opacity=isWin?'1':'0.4';
+  document.getElementById('f-gain-field').style.opacity=isWin?'1':'0.4';
+  document.getElementById('f-mult').disabled=!isWin;
+  document.getElementById('f-gain').disabled=!isWin;
+  document.getElementById('calc-hint').textContent='';
+}
+function calcGain(){
+  var mise=parseFloat(document.getElementById('f-mise').value);
+  var mult=parseFloat(document.getElementById('f-mult').value);
+  if(mise>0&&mult>0){
+    var gain=Math.round(mise*mult*100)/100;
+    document.getElementById('f-gain').value=gain;
+    document.getElementById('calc-hint').textContent=mise+' x '+mult+' = '+gain+' DH';
+  } else {
+    document.getElementById('calc-hint').textContent='';
+  }
+}
+function clearMult(){
+  document.getElementById('f-mult').value='';
+  document.getElementById('calc-hint').textContent='';
+}
+
+function toggleNote(btn,type){
+  var activeClass='active-'+type;
+  if(btn.classList.contains(activeClass)){btn.classList.remove(activeClass);}
+  else{btn.classList.add(activeClass);}
+}
+function getSelectedTags(){
+  var tags=[];
+  document.querySelectorAll('.qnote.active-win,.qnote.active-loss,.qnote.active-neutral').forEach(function(b){tags.push(b.textContent.trim());});
+  return tags.join(' - ');
+}
+function resetTags(){
+  document.querySelectorAll('.qnote').forEach(function(b){b.className='qnote';});
+}
+
+function openBudgetModal(){
+  document.getElementById('budget-modal').classList.remove('hidden');
+  selectBudget(state.budget);
+  document.getElementById('modal-objectif').value=state.objectif||'';
+}
+function selectBudget(val){
+  document.querySelectorAll('.budget-opt').forEach(function(o){o.classList.remove('selected');});
+  var opts=[50,100,150,200,300,500];
+  var idx=opts.indexOf(val);
+  if(idx>=0){
+    document.querySelectorAll('.budget-opt')[idx].classList.add('selected');
+    document.getElementById('modal-custom').value='';
+  } else {
+    document.getElementById('modal-custom').value=val;
+  }
+  window._selBudget=val;
+}
+function confirmBudget(){
+  var cv=parseFloat(document.getElementById('modal-custom').value);
+  state.budget=cv>0?cv:(window._selBudget||100);
+  state.objectif=parseFloat(document.getElementById('modal-objectif').value)||0;
+  save();
+  document.getElementById('budget-modal').classList.add('hidden');
+  syncSettings(); updateMetrics();
+}
+function syncSettings(){
+  var opts=[50,100,150,200,300,500];
+  var sel=document.getElementById('s-budget');
+  if(opts.indexOf(state.budget)>=0){sel.value=state.budget;document.getElementById('s-custom-row').style.display='none';}
+  else{sel.value='custom';document.getElementById('s-custom-val').value=state.budget;document.getElementById('s-custom-row').style.display='flex';}
+  document.getElementById('s-objectif').value=state.objectif||'';
+  document.getElementById('s-alert').value=state.alertPct;
+}
+function handleBudgetSelect(){
+  document.getElementById('s-custom-row').style.display=document.getElementById('s-budget').value==='custom'?'flex':'none';
+}
+function saveSettings(){
+  var sel=document.getElementById('s-budget').value;
+  var cv=parseFloat(document.getElementById('s-custom-val').value);
+  state.budget=sel==='custom'?(cv||100):parseFloat(sel);
+  state.alertPct=parseFloat(document.getElementById('s-alert').value)||80;
+  state.objectif=parseFloat(document.getElementById('s-objectif').value)||0;
+  save(); updateMetrics(); alert('Parametres enregistres !');
+}
+
+var CONSEILS=[
+  'Cashout automatique a 1.5x = meilleure regularite que d attendre 5x.',
+  'Ne jouez jamais pour recuperer une perte. Chaque round est independant.',
+  'Si vous etes en gain, c est le bon moment pour arreter la session.',
+  'Le budget est une limite, pas un objectif a atteindre chaque mois.',
+  'Trois defaites de suite = pause de 10 minutes minimum.',
+  'Les gains nets sont le seul indicateur qui compte sur le long terme.',
+  'Preferez 10 mises de 10 DH plutot qu une seule mise de 100 DH.',
+];
+function getConseil(){
+  var net=netBilan(),streak=getStreaks();
+  if(streak.loss>=3) return '3 defaites consecutives detectees. Recommandation : pause immediate.';
+  if(net>0) return 'Vous etes en gain ce mois. Pensez a securiser vos benefices.';
+  if(totalSpent()>=state.budget*0.8) return 'Vous approchez la limite. Misez petit et cashout tot.';
+  return CONSEILS[new Date().getDate()%CONSEILS.length];
+}
+
+function updateMetrics(){
+  var spent=totalSpent(),left=Math.max(0,state.budget-spent),net=netBilan();
+  var pct=Math.min(100,Math.round(spent/state.budget*100));
+  var gn=Math.max(0,totalGainsNets()),gmax=Math.floor(gn*0.5),gused=totalSpentInBonus(),grest=Math.max(0,gmax-gused);
+  var solde=state.budget+net,streak=getStreaks();
+  var wins=state.sessions.filter(function(s){return s.result==='win';}).length;
+  var miseMoy=state.sessions.length?Math.round(spent/state.sessions.length):0;
+
+  document.getElementById('m-budget').textContent=state.budget+' DH';
+  document.getElementById('m-spent').textContent=spent+' DH';
+  document.getElementById('m-left').textContent=left+' DH';
+  var ne=document.getElementById('m-net');
+  ne.textContent=(net>=0?'+':'')+net+' DH';
+  ne.className='metric-val '+(net>0?'green':net<0?'red':'');
+  var se=document.getElementById('m-solde');
+  se.textContent=solde+' DH';
+  se.className='metric-val '+(solde>state.budget?'green':solde<state.budget?'red':'accent');
+  document.getElementById('m-gains-reserve').textContent=grest+' DH';
+  document.getElementById('m-gains-sub').textContent='Gains nets : '+gn+' DH - max : '+gmax+' DH (50%)';
+
+  document.getElementById('streak-win').textContent=streak.win;
+  document.getElementById('streak-loss').textContent=streak.loss;
+  document.getElementById('taux-win').textContent=state.sessions.length?(Math.round(wins/state.sessions.length*100)+'%'):'-';
+  document.getElementById('mise-moy').textContent=state.sessions.length?(miseMoy+' DH'):'-';
+
+  var oc=document.getElementById('objectif-card');
+  if(state.objectif>0){
+    oc.style.display='block';
+    var gt=totalGain(),op=Math.min(100,Math.round(gt/state.objectif*100));
+    document.getElementById('objectif-fill').style.width=op+'%';
+    document.getElementById('objectif-fill').style.background=op>=100?'var(--green)':op>=60?'var(--amber)':'var(--accent)';
+    document.getElementById('objectif-pct').textContent=op+'%';
+    document.getElementById('objectif-label').textContent=gt+' / '+state.objectif+' DH';
+    var r=state.objectif-gt;
+    document.getElementById('objectif-restant').textContent=r>0?('Encore '+r+' DH'):'Objectif atteint !';
+    document.getElementById('objectif-restant').style.color=r<=0?'var(--green)':'var(--text3)';
+  } else {oc.style.display='none';}
+
+  var fill=document.getElementById('progress');
+  fill.style.width=pct+'%';
+  fill.style.background=pct>=100?'var(--red)':pct>=state.alertPct?'var(--amber)':'var(--green)';
+  document.getElementById('prog-pct').textContent=pct+'%';
+  document.getElementById('prog-label').textContent=spent+' / '+state.budget+' DH utilises';
+  document.getElementById('prog-sessions').textContent=state.sessions.length+' session'+(state.sessions.length!==1?'s':'');
+
+  var gc=document.getElementById('gains-progress-card');
+  if(spent>=state.budget&&gn>0){
+    gc.style.display='block';
+    var gp=gmax>0?Math.min(100,Math.round(gused/gmax*100)):0;
+    var gf=document.getElementById('gains-progress');
+    gf.style.width=gp+'%';
+    gf.style.background=gp>=100?'var(--red)':gp>=70?'var(--amber)':'var(--green)';
+    document.getElementById('gains-pct').textContent=gp+'%';
+    document.getElementById('gains-pct').style.color=gp>=100?'var(--red)':gp>=70?'var(--amber)':'var(--green)';
+    document.getElementById('gains-label').textContent=gused+' / '+gmax+' DH utilises';
+    document.getElementById('gains-restant').textContent=grest+' DH restants';
+    document.getElementById('gains-restant').style.color=grest<=0?'var(--red)':'var(--green)';
+  } else {gc.style.display='none';}
+
+  var az=document.getElementById('alert-zone'),am=document.getElementById('alert-msg');
+  var be=spent>=state.budget,ge=be&&gused>=gmax&&gmax>0,gd=be&&gn>0&&!ge;
+  if(ge){az.className='alert show alert-danger';am.textContent='Budget + 50% des gains nets epuises ! Stop total pour ce mois.';}
+  else if(gd){az.className='alert show alert-warn';am.textContent='Budget epuise. Mode gains actif - il reste '+grest+' DH (50% des profits nets).';}
+  else if(be&&gn===0){az.className='alert show alert-danger';am.textContent='Budget epuise et aucun gain net. Arretez de jouer ce mois.';}
+  else if(pct>=state.alertPct){az.className='alert show alert-warn';am.textContent='Attention : '+pct+'% du budget utilise. Il reste '+left+' DH.';}
+  else{az.className='alert';}
+
+  document.getElementById('conseil-msg').textContent=getConseil();
+
+  var ls=document.getElementById('last-session-banner');
+  if(state.sessions.length){
+    var last=state.sessions[state.sessions.length-1];
+    ls.classList.add('show');
+    document.getElementById('last-badge').innerHTML='<span class="badge '+(last.result==='win'?'badge-win':'badge-loss')+'">'+(last.result==='win'?'WIN':'LOSE')+'</span>';
+    document.getElementById('last-info').innerHTML='Mise: <strong>'+last.mise+' DH</strong>'+(last.result==='win'?' - Recupere: <strong style="color:var(--green)">'+last.gain+' DH</strong>':' - <span style="color:var(--red)">Perdu</span>');
+    document.getElementById('last-time').textContent=last.date;
+  } else {ls.classList.remove('show');}
+
+  var now=new Date();
+  var months=['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre'];
+  document.getElementById('month-badge').textContent=months[now.getMonth()]+' '+now.getFullYear();
+  syncSettings();
+}
+
+function renderHistory(){
+  var el=document.getElementById('session-list');
+  var filter=document.getElementById('filter-result').value;
+  var sessions=state.sessions.slice().reverse();
+  if(filter!=='all') sessions=sessions.filter(function(s){return s.result===filter;});
+  if(!sessions.length){el.innerHTML='<div class="empty">Aucune session enregistree.</div>';return;}
+  el.innerHTML=sessions.map(function(s){
+    var realIdx=state.sessions.lastIndexOf(s);
+    var netGain=s.result==='win'?Math.round((s.gain-s.mise)*100)/100:0;
+    return '<div class="session-item">'
+      +'<div class="session-left">'
+      +'<span class="badge '+(s.result==='win'?'badge-win':'badge-loss')+'">'+(s.result==='win'?'WIN':'LOSE')+'</span>'
+      +(s.bonusMode?'<span class="badge badge-bonus">BONUS</span>':'')
+      +'<div>'
+      +'<div class="session-info">Mise: <strong>'+s.mise+' DH</strong>'+(s.result==='win'?' - Recupere: <strong style="color:var(--green)">'+s.gain+' DH</strong> <span style="color:var(--text3);font-size:11px;">(+'+netGain+' net)</span>':' - <span style="color:var(--red)">Perdu</span>')+'</div>'
+      +(s.note?'<div class="session-note">'+s.note+'</div>':'')
+      +'</div></div>'
+      +'<div class="session-right">'
+      +'<span class="session-date">'+s.date+'</span>'
+      +'<button class="btn-del" onclick="deleteSession('+realIdx+')">x</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function deleteSession(idx){
+  if(!confirm('Supprimer cette session ?')) return;
+  state.sessions.splice(idx,1);
+  save(); updateMetrics(); renderHistory();
+}
+function resetMonth(){
+  if(confirm('Reinitialiser toutes les sessions du mois ?')){state.sessions=[];save();updateMetrics();renderHistory();}
+}
+
+var chartInst=null;
+function renderStats(){
+  var body=document.getElementById('stats-body');
+  if(!state.sessions.length){
+    body.innerHTML='<div class="empty">Ajoutez des sessions pour voir les stats.</div>';
+    if(chartInst){chartInst.destroy();chartInst=null;}
+    return;
+  }
+  var wins=state.sessions.filter(function(s){return s.result==='win';}).length;
+  var losses=state.sessions.length-wins;
+  var spent=totalSpent(),gain=totalGain(),net=netBilan(),gn=Math.max(0,totalGainsNets());
+  var wr=Math.round(wins/state.sessions.length*100);
+  var bg=wins>0?Math.max.apply(null,state.sessions.filter(function(s){return s.result==='win';}).map(function(s){return s.gain-s.mise;})):0;
+  var mm=Math.round(spent/state.sessions.length);
+  var roi=spent>0?Math.round(net/spent*100):0;
+  body.innerHTML='<div class="stats-grid">'
+    +'<div class="stat-box"><div class="stat-box-label">Sessions</div><div class="stat-box-val" style="color:var(--accent)">'+state.sessions.length+'</div></div>'
+    +'<div class="stat-box"><div class="stat-box-label">Victoires</div><div class="stat-box-val" style="color:var(--green)">'+wins+' <span style="font-size:13px;color:var(--text3)">('+wr+'%)</span></div></div>'
+    +'<div class="stat-box"><div class="stat-box-label">Defaites</div><div class="stat-box-val" style="color:var(--red)">'+losses+'</div></div>'
+    +'<div class="stat-box"><div class="stat-box-label">Meilleur gain net</div><div class="stat-box-val" style="color:var(--green)">+'+bg+' DH</div></div>'
+    +'<div class="stat-box"><div class="stat-box-label">Mise moyenne</div><div class="stat-box-val" style="color:var(--text2)">'+mm+' DH</div></div>'
+    +'<div class="stat-box"><div class="stat-box-label">ROI</div><div class="stat-box-val" style="color:'+(roi>=0?'var(--green)':'var(--red)')+'">'+roi+'%</div></div>'
+    +'</div><div class="chart-wrap"><canvas id="statsChart"></canvas></div>';
+  if(chartInst) chartInst.destroy();
+  chartInst=new Chart(document.getElementById('statsChart'),{
+    type:'bar',
+    data:{labels:['Mise total','Gains bruts','Gains nets','Bilan'],datasets:[{data:[spent,gain,Math.max(0,gn),net],backgroundColor:['rgba(79,142,247,.3)','rgba(45,217,143,.3)','rgba(167,139,250,.3)',net>=0?'rgba(45,217,143,.3)':'rgba(240,82,82,.3)'],borderColor:['#4f8ef7','#2dd98f','#a78bfa',net>=0?'#2dd98f':'#f05252'],borderWidth:1.5,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return v+' DH';},color:'#555a72',font:{size:11}},grid:{color:'rgba(255,255,255,.05)'},border:{color:'rgba(255,255,255,.05)'}},x:{ticks:{color:'#8a8fa8',font:{size:11}},grid:{display:false},border:{color:'rgba(255,255,255,.05)'}}}}
+  });
+}
+
+function addSession(){
+  var mise=parseFloat(document.getElementById('f-mise').value);
+  var result=document.getElementById('f-result').value;
+  var gainVal=parseFloat(document.getElementById('f-gain').value);
+  var gain=result==='win'?(isNaN(gainVal)?mise:gainVal):0;
+  var tags=getSelectedTags();
+  var freeNote=document.getElementById('f-note').value.trim();
+  var note=[tags,freeNote].filter(Boolean).join(' - ');
+  if(!mise||mise<=0){alert('Entrez un montant de mise valide.');return;}
+  var spent=totalSpent(),gn=Math.max(0,totalGainsNets()),gmax=Math.floor(gn*0.5),gused=totalSpentInBonus();
+  if(spent>=state.budget){
+    if(gn===0){alert('Budget epuise et aucun gain net. Arretez de jouer ce mois.');return;}
+    if(gused>=gmax){alert('Limite 50% des gains nets atteinte ('+gmax+' DH). Stop !');return;}
+    if(gused+mise>gmax){alert('Mise trop elevee. Maximum : '+(gmax-gused)+' DH.');return;}
+  }
+  var now=new Date();
+  state.sessions.push({mise:mise,result:result,gain:gain,note:note,bonusMode:spent>=state.budget,date:now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})});
+  save();
+  document.getElementById('f-note').value='';
+  document.getElementById('f-gain').value='';
+  document.getElementById('f-mult').value='';
+  document.getElementById('calc-hint').textContent='';
+  resetTags();
+  updateMetrics(); renderHistory();
+}
+
+function exportCSV(){
+  if(!state.sessions.length){alert('Aucune session a exporter.');return;}
+  var rows=[['Date','Resultat','Mise (DH)','Gain (DH)','Gain net (DH)','Mode','Note']];
+  state.sessions.forEach(function(s){rows.push([s.date,s.result==='win'?'Gagne':'Perdu',s.mise,s.gain,s.result==='win'?s.gain-s.mise:0,s.bonusMode?'Gains':'Budget',s.note||'']);});
+  var csv=rows.map(function(r){return r.map(function(v){return '"'+v+'"';}).join(',');}).join('\n');
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='crash-tracker-'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv';
+  a.click();
+}
+
+toggleGain();
+syncSettings();
+updateMetrics();
+renderHistory();
+var lm=localStorage.getItem('crash_month_v4');
+var nm=new Date().getMonth()+'-'+new Date().getFullYear();
+if(!lm||lm!==nm){localStorage.setItem('crash_month_v4',nm);openBudgetModal();}
+</script>
+</body>
+</html>
